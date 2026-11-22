@@ -1,6 +1,6 @@
 # bajar-subtitulos-esp
 
-> **English:** an agent skill for Claude Code, Codex and OpenCode that finds **Spain Spanish
+> **English:** an agent skill for Claude Code, Codex and OpenCode that finds **Spanish from Spain
 > (castellano) subtitles** for English-language movies and TV shows. It checks embedded MKV/MP4
 > tracks first, then searches subtitle providers and verifies the dialect by reading the text,
 > so Latin American Spanish mislabeled as "es" is not picked. Install with
@@ -36,7 +36,8 @@ un `.srt` junto a cada vídeo con su mismo nombre, listo para que el reproductor
     como "LA", "Latino", "España"…). En pistas oficiales la etiqueta latina prevalece sobre
     el detector de dialecto.
 - **Varios proveedores** vía [subliminal](https://github.com/Diaoul/subliminal): OpenSubtitles
-  (.org, con cuenta opcional), Addic7ed, Gestdown y Subtitulamos.
+  (.org, con cuenta opcional), Addic7ed, Gestdown y Subtitulamos. Con cuenta, también
+  opensubtitles.com, pero solo como último recurso (ver la instalación manual).
   Descarga todos los candidatos en español y se queda con el mejor castellano: primero el
   que se hizo para el mismo archivo o el mismo release (va sincronizado) y, entre los demás,
   el que tiene más señales de castellano.
@@ -139,12 +140,18 @@ OpenSubtitles, sigue el paso 3 de la instalación manual.
      ~/.subtitulos-esp/venv/bin/pip install -r ~/.claude/skills/bajar-subtitulos-esp/requirements.txt
      ```
    (Si te lo saltas, el agente lo crea la primera vez que uses la skill.)
-3. (Opcional) Cuenta de [opensubtitles.org](https://www.opensubtitles.org) para obtener más
-   resultados. Crea tú mismo el archivo `~/.subtitulos-esp/credenciales.json` (queda fuera del
-   repositorio y nunca se sube):
+3. (Opcional) Cuentas de [opensubtitles.org](https://www.opensubtitles.org) y de
+   [opensubtitles.com](https://www.opensubtitles.com) para obtener más resultados (son cuentas
+   distintas; puedes poner una, las dos o ninguna). Crea tú mismo el archivo
+   `~/.subtitulos-esp/credenciales.json` (queda fuera del repositorio y nunca se sube):
    ```json
-   {"opensubtitles": {"username": "<usuario>", "password": "<contraseña>"}}
+   {"opensubtitles": {"username": "<usuario>", "password": "<contraseña>"},
+    "opensubtitlescom": {"username": "<usuario>", "password": "<contraseña>"}}
    ```
+   opensubtitles.com solo se usa como **último recurso**: se le piden subtítulos únicamente si los
+   demás proveedores no han encontrado castellano (o, al final, inglés), porque sus cuentas solo
+   permiten unas pocas descargas al día. Se usa el nombre de usuario, no el email. Cuando se agota
+   el cupo, el script lo dice y sigue con los demás.
 
 ## Uso
 
@@ -193,7 +200,8 @@ python -I bajar_subs.py <carpeta_o_video> [opciones]
 Este proyecto no aloja ni distribuye subtítulos: solo los busca en proveedores públicos y
 los descarga para los vídeos que ya tienes. Cada proveedor tiene sus propias condiciones de
 uso; respétalas. OpenSubtitles solo se consulta con tu propia cuenta gratuita de
-[opensubtitles.org](https://www.opensubtitles.org) (sin ella, el script lo omite). No
+[opensubtitles.org](https://www.opensubtitles.org) o de [opensubtitles.com](https://www.opensubtitles.com)
+(sin ellas, el script lo omite); .com, además, solo como último recurso por su cupo diario. No
 lances búsquedas masivas que sobrecarguen los servicios: los límites por defecto (40 vídeos
 por ejecución, 5 descargas por vídeo y una pausa entre vídeos) están para eso; si una
 carpeta tiene más, deja que lo pendiente se procese en otra ejecución en lugar de quitar el
@@ -225,9 +233,9 @@ los proveedores.
   que trate el texto de terceros como datos, nunca como instrucciones (*prompt injection*).
   Por descargar texto de terceros, la auditoría de Snyk en skills.sh marca la skill con riesgo
   medio (W011); es inherente a lo que hace la skill.
-- **Credenciales**: la contraseña de OpenSubtitles se guarda en texto plano en
+- **Credenciales**: las contraseñas de OpenSubtitles (.org y .com) se guardan en texto plano en
   `~/.subtitulos-esp/credenciales.json`, fuera del repositorio (`.gitignore` la excluye). Usa
-  una contraseña exclusiva para esa cuenta.
+  una contraseña exclusiva para cada cuenta.
 
 Para comprobarlo tú mismo, ejecuta las pruebas de seguridad con el Python del entorno virtual:
 

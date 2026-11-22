@@ -37,9 +37,10 @@ Windows, `%USERPROFILE%`), así que funcionan en cualquier equipo sin tocar nada
   - Linux/macOS:
     `python3 -m venv ~/.subtitulos-esp/venv` y
     `~/.subtitulos-esp/venv/bin/pip install -r "<skill>/requirements.txt"`
-- Credenciales opensubtitles.org (opcional, pero da más resultados):
-  `~/.subtitulos-esp/credenciales.json` con
-  `{"opensubtitles": {"username": "<usuario>", "password": "<contraseña>"}}`.
+- Credenciales de opensubtitles.org y opensubtitles.com (opcionales, cada una por separado; dan
+  más resultados): `~/.subtitulos-esp/credenciales.json` con
+  `{"opensubtitles": {"username": "<usuario>", "password": "<contraseña>"}, "opensubtitlescom": {"username": "<usuario>", "password": "<contraseña>"}}`.
+  La de .com solo se usa como último recurso (ver Notas).
   El agente no debe escribir la contraseña: si falta el archivo, el script funciona sin
   OpenSubtitles; díselo al usuario y que lo cree él.
 - Copias de los `.srt` que se sustituyen: `~/.subtitulos-esp/backup`.
@@ -139,8 +140,14 @@ díselo al usuario. Además:
   resolución y códec ganaba a un candidato con 5 veces más señales de castellano.
 - **Addic7ed** es la mejor fuente de castellano para series y funciona sin cuenta
   (ofrece dos versiones en español; la de castellano suele ser `updated/4/...`).
-- **Se usa opensubtitles.org** (proveedor `opensubtitles` en subliminal), no opensubtitles.com:
-  son cuentas distintas, y el login en .com exige nombre de usuario, no email.
+- **opensubtitles.org** (proveedor `opensubtitles` en subliminal) se usa como los demás.
+  **opensubtitles.com** (proveedor `opensubtitlescom`) es otra cuenta distinta y solo se usa
+  como último recurso: se le pregunta únicamente si los demás no han dado castellano (o, al
+  final, inglés), y para en el primer castellano válido, porque sus cuentas gratuitas solo
+  permiten unas pocas descargas al día. El login en .com exige nombre de usuario, no email.
+  La salida dice cuántas descargas quedan ("quedan N descargas por hoy") y, si se agota el cupo
+  o no acepta la cuenta, "no deja descargar": a partir de ahí no se le pide nada más en esa
+  ejecución. Es normal; no hace falta repetir la búsqueda hasta el día siguiente.
 - **Subtitulamos** (web española) no tiene todo el catálogo.
 - **Podnapisi y TVsubtitles se quitaron** (2026): el dominio de Podnapisi dejó de resolver y
   la búsqueda de TVsubtitles responde 403 a programas; además, ambos solían dar latino. Si

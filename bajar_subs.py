@@ -15,10 +15,14 @@ correcto y con una duración compatible con el vídeo. Las etiquetas de idioma d
 NO son fiables (se han visto latinos marcados como "es" y episodios mal etiquetados), por
 eso se comprueba el texto.
 
-Credenciales de opensubtitles.org en %USERPROFILE%\\.subtitulos-esp\\credenciales.json:
-    {"opensubtitles": {"username": "...", "password": "..."}}
+Credenciales en %USERPROFILE%\\.subtitulos-esp\\credenciales.json (las dos son opcionales):
+    {"opensubtitles": {"username": "...", "password": "..."},
+     "opensubtitlescom": {"username": "...", "password": "..."}}
+"opensubtitles" es la cuenta de opensubtitles.org; "opensubtitlescom", la de opensubtitles.com, que
+solo se usa como último recurso (ver UltimoRecurso).
 """
 import argparse
+import contextlib
 import itertools
 import json
 import logging
@@ -41,11 +45,13 @@ HOME = Path.home() / '.subtitulos-esp'
 VIDEO_EXT = {'.mkv', '.mp4', '.avi', '.m4v', '.mov', '.wmv', '.ts'}
 MKV_EXT = {'.mkv'}
 MP4_EXT = {'.mp4', '.m4v', '.mov'}
-# opensubtitlescom queda fuera: se usa la cuenta de opensubtitles.org (son cuentas distintas).
+# opensubtitlescom (opensubtitles.com, otra cuenta distinta de la de .org) no va aquí: tiene un cupo
+# pequeño de descargas al día, así que solo se le pide como último recurso (ver UltimoRecurso).
 # subtis (Argentina) y napiprojekt (polaco) no aportan castellano.
 # podnapisi: el dominio dejó de resolver en 2026 (podnapisi.net sin registro A, www sin DNS).
 # tvsubtitles: la búsqueda (search.php) responde 403 a programas. Además, ambos daban latino.
 PROVIDERS = ['opensubtitles', 'addic7ed', 'gestdown', 'subtitulamos']
+ULTIMO = 'opensubtitlescom'
 # Límites para no saturar a los proveedores con búsquedas masivas.
 MAX_VIDEOS = 40     # vídeos que buscan en internet por ejecución (--max-videos; 0 = sin límite)
 MAX_DESCARGAS = 5   # candidatos que se descargan por vídeo (--max-descargas; 0 = sin límite)
@@ -645,6 +651,76 @@ def ingles_incrustado(path):
     return texto, visible(f'pista {pistas[0]["num"]} {pistas[0]["name"]}'.strip())
 
 
+class UltimoRecurso:
+    """opensubtitles.com, con la misma forma que un ProviderPool (list_subtitles y download_subtitle).
+
+    Solo se usa si hay cuenta y solo cuando los demás proveedores no han dado castellano (o, al final,
+    inglés). Su pool se abre la primera vez que hace falta (la búsqueda no inicia sesión; la primera
+    descarga, sí). Se deja de usar en toda la ejecución en cuanto falla (cuenta incorrecta, servicio
+    caído) o se agota el cupo de descargas del día. Tras cada descarga, el servidor dice cuántas quedan."""
+
+    def __init__(self, configs, pila):
+        self.config = configs.get(ULTIMO)
+        self.activo = isinstance(self.config, dict)
+        self._pila = pila
+        self._pool = None
+        self.restantes = None
+        self._informado = None
+
+    def _abrir(self):
+        if self._pool is None:
+            self._pool = self._pila.enter_context(ProviderPool(providers=[ULTIMO],
+                                                               provider_configs={ULTIMO: self.config}))
+        return self._pool
+
+    def _vigilar_cupo(self):
+        """Apunta las descargas que quedan (subliminal no las guarda): de la respuesta del servidor."""
+        proveedor = getattr(self._pool, 'initialized_providers', {}).get(ULTIMO)
+        if proveedor is None or getattr(proveedor, '_vigilado', False) or not hasattr(proveedor, 'api_post'):
+            return
+        original = proveedor.api_post
+
+        def api_post(path, body=None, **k):
+            r = original(path, body, **k)
+            if path == 'download' and isinstance(r, dict) and isinstance(r.get('remaining'), int):
+                self.restantes = r['remaining']
+            return r
+        proveedor.api_post = api_post
+        proveedor._vigilado = True
+
+    def _apagar(self, motivo):
+        self.activo = False
+        print(motivo, flush=True)
+
+    def list_subtitles(self, video, idiomas):
+        if not self.activo:
+            return []
+        pool = self._abrir()
+        candidatos = pool.list_subtitles(video, idiomas)
+        if ULTIMO in pool.discarded_providers:
+            self._apagar('  opensubtitles.com no responde o no acepta la cuenta: no se le pide nada más en '
+                         'esta ejecución')
+            return []
+        self._vigilar_cupo()
+        return candidatos
+
+    def download_subtitle(self, sub):
+        if not self.activo:
+            return False
+        ok = self._pool.download_subtitle(sub)
+        if ULTIMO in self._pool.discarded_providers:
+            self._apagar('  opensubtitles.com no deja descargar (cupo de hoy agotado o cuenta no válida): no '
+                         'se le pide nada más en esta ejecución')
+            return False
+        return ok
+
+    def informar(self):
+        """Descargas que quedan hoy, si han cambiado desde el último aviso."""
+        if self.activo and self.restantes is not None and self.restantes != self._informado:
+            self._informado = self.restantes
+            print(f'  opensubtitles.com: quedan {self.restantes} descargas por hoy', flush=True)
+
+
 def ingles_proveedores(pool, video, max_descargas=MAX_DESCARGAS):
     """Busca subtítulos en inglés; descarga por orden de puntuación hasta encontrar uno válido."""
     candidatos = pool.list_subtitles(video, {Language('eng')})
@@ -691,7 +767,9 @@ class SinRuido(logging.Filter):
     def filter(self, record):
         mensaje = record.getMessage()
         if (record.name.startswith('knowit') or 'Failed to refine' in mensaje
-                or 'improperly terminated' in mensaje):
+                or 'improperly terminated' in mensaje
+                # opensubtitles.com sin cupo: el script ya lo dice
+                or 'download quota exceeded' in mensaje or f'Discarding provider {ULTIMO}' in mensaje):
             return False
         record.exc_info = record.exc_text = None
         return True
@@ -743,7 +821,9 @@ def main():
 
     resumen = []
     buscados = 0  # vídeos que ya han buscado en internet en esta ejecución
-    with ProviderPool(providers=providers, provider_configs=configs) as pool:
+    with contextlib.ExitStack() as pila:
+        pool = pila.enter_context(ProviderPool(providers=providers, provider_configs=configs))
+        ultimo = UltimoRecurso(configs, pila)
         for path in buscar_videos(args.ruta):
             destino = path.with_suffix('.srt')
             # Formato antiguo: <video>.es.srt (o .en.srt si no había español) -> <video>.srt
@@ -808,27 +888,43 @@ def main():
                       f'mejores, alternando proveedores', flush=True)
             castellanos, latinos = [], []
             vistos = set()
-            for sub in mejores_candidatos(candidatos, video, max_descargas):
-                if not pool.download_subtitle(sub) or not sub.content:
-                    continue
-                texto = sub.text
-                if len(texto) > MAX_SRT:
-                    print(f'  {sub.provider_name:13} id={visible(sub.id)} descartado: tamaño anormal',
+
+            def revisar(fuente, candidatos, hasta_el_primero=False):
+                """Descarga los mejores candidatos de `fuente` y los clasifica. Con `hasta_el_primero`,
+                para en el primer castellano válido (opensubtitles.com: cada descarga gasta cupo)."""
+                for sub in mejores_candidatos(candidatos, video, max_descargas):
+                    if not fuente.download_subtitle(sub) or not sub.content:
+                        continue
+                    texto = sub.text
+                    if len(texto) > MAX_SRT:
+                        print(f'  {sub.provider_name:13} id={visible(sub.id)} descartado: tamaño anormal',
+                              flush=True)
+                        continue
+                    if texto in vistos:
+                        continue
+                    vistos.add(texto)
+                    es, la, ok = dialecto(texto)
+                    ep_ok = episodio_correcto(sub, video)
+                    dur_ok = duracion_ok(texto, video)
+                    score = compute_score(sub, video)
+                    sinc = sincronia(sub, video)
+                    print(f'  {sub.provider_name:13} id={visible(sub.id)} score={score} sincronía={sinc} '
+                          f'españa={es} latino={la} episodio_ok={ep_ok} duración_ok={dur_ok}', flush=True)
+                    if not (ep_ok and dur_ok):
+                        continue
+                    (castellanos if ok else latinos).append((sinc, es, score, sub, texto))
+                    if hasta_el_primero and ok:
+                        return
+
+            revisar(pool, candidatos)
+            if not castellanos and ultimo.activo:
+                # Último recurso: opensubtitles.com, solo si los demás no han dado castellano.
+                candidatos = ultimo.list_subtitles(video, {Language('spa')})
+                if candidatos:
+                    print(f'  opensubtitles.com (último recurso): {len(candidatos)} candidatos en español',
                           flush=True)
-                    continue
-                if texto in vistos:
-                    continue
-                vistos.add(texto)
-                es, la, ok = dialecto(texto)
-                ep_ok = episodio_correcto(sub, video)
-                dur_ok = duracion_ok(texto, video)
-                score = compute_score(sub, video)
-                sinc = sincronia(sub, video)
-                print(f'  {sub.provider_name:13} id={visible(sub.id)} score={score} sincronía={sinc} '
-                      f'españa={es} latino={la} episodio_ok={ep_ok} duración_ok={dur_ok}', flush=True)
-                if not (ep_ok and dur_ok):
-                    continue
-                (castellanos if ok else latinos).append((sinc, es, score, sub, texto))
+                    revisar(ultimo, candidatos, hasta_el_primero=True)
+                    ultimo.informar()
 
             if castellanos:
                 # 1) sincronía (mismo archivo > mismo release), 2) más señales de castellano,
@@ -855,6 +951,9 @@ def main():
                     aplicar('ingles', texto, 'INGLÉS (incrustado)', pista[:30])
                     continue
                 texto, sub = ingles_proveedores(pool, video, max_descargas)
+                if not texto and ultimo.activo:
+                    texto, sub = ingles_proveedores(ultimo, video, max_descargas)
+                    ultimo.informar()
                 if texto:
                     aplicar('ingles', texto, 'INGLÉS', f'{sub.provider_name} {sub.id}')
                 else:
