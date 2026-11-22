@@ -27,7 +27,7 @@ Windows, `%USERPROFILE%`), así que funcionan en cualquier equipo sin tocar nada
   `<skill>`. Cada agente indica esa ruta al cargar la skill: Claude Code la da como
   "Base directory for this skill", OpenCode como directorio base de la skill y Codex con
   la ruta del `SKILL.md` en la lista de skills (quítale `/SKILL.md`).
-- Venv permanente: `~/.subtitulos-esp/venv` (con `subliminal` 2.8). Si no existe, créalo:
+- Venv permanente: `~/.subtitulos-esp/venv` (con [`subliminal`](https://github.com/Diaoul/subliminal) 2.8). Si no existe, créalo:
   - Windows (PowerShell):
     `python -m venv "$HOME\.subtitulos-esp\venv"` y
     `& "$HOME\.subtitulos-esp\venv\Scripts\pip.exe" install -r "<skill>\requirements.txt"`
@@ -48,7 +48,7 @@ Windows, `%USERPROFILE%`), así que funcionan en cualquier equipo sin tocar nada
 ## Pasos
 
 1. Ejecuta el script con el Python del venv (el propio script ya oculta el ruido de
-   subliminal, como el 401 del refinador omdb, así que no hace falta filtrar la salida):
+   [subliminal](https://github.com/Diaoul/subliminal), como el 401 del refinador omdb, así que no hace falta filtrar la salida):
    - Windows (PowerShell):
      ```
      & "$HOME\.subtitulos-esp\venv\Scripts\python.exe" -I "<skill>\bajar_subs.py" "<ruta>"
@@ -136,11 +136,11 @@ díselo al usuario. Además:
   episodio o cuyo último tiempo no encaja con la duración del vídeo.
 - **Cómo elige entre varios castellanos**: 1) sincronía (`sincronía=` en la salida: mismo
   archivo por hash o mismo release por grupo/plataforma/fps), 2) más señales de castellano
-  (`españa=`), 3) puntuación de subliminal. La puntuación ya no manda: un +2 por coincidir en
+  (`españa=`), 3) puntuación de [subliminal](https://github.com/Diaoul/subliminal). La puntuación ya no manda: un +2 por coincidir en
   resolución y códec ganaba a un candidato con 5 veces más señales de castellano.
 - **Addic7ed** es la mejor fuente de castellano para series y funciona sin cuenta
   (ofrece dos versiones en español; la de castellano suele ser `updated/4/...`).
-- **opensubtitles.org** (proveedor `opensubtitles` en subliminal) se usa como los demás.
+- **opensubtitles.org** (proveedor `opensubtitles` en [subliminal](https://github.com/Diaoul/subliminal)) se usa como los demás.
   **opensubtitles.com** (proveedor `opensubtitlescom`) es otra cuenta distinta y solo se usa
   como último recurso: se le pregunta únicamente si los demás no han dado castellano (o, al
   final, inglés), y para en el primer castellano válido, porque sus cuentas gratuitas solo

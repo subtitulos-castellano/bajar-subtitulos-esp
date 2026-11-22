@@ -31,7 +31,7 @@ confirma el problema, se publica una versión corregida y se menciona en sus not
 - Las instrucciones de la skill (`SKILL.md`), incluido cómo debe tratar el agente el texto de
   terceros.
 
-Fuera del alcance: fallos de los proveedores de subtítulos, de subliminal u otras
+Fuera del alcance: fallos de los proveedores de subtítulos, de [subliminal](https://github.com/Diaoul/subliminal) u otras
 dependencias (avisa a sus autores) y de los reproductores de vídeo.
 
 Las medidas de seguridad de la skill se describen en la sección

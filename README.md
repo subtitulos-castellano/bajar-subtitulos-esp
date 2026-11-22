@@ -128,7 +128,7 @@ OpenSubtitles, sigue el paso 3 de la instalación manual.
      New-Item -ItemType Junction -Path "$HOME\.agents\skills\bajar-subtitulos-esp" -Target "$HOME\.claude\skills\bajar-subtitulos-esp"
      ```
    Si solo usas uno de los agentes, basta con clonarla en su carpeta.
-2. Crea el entorno virtual con subliminal:
+2. Crea el entorno virtual con [subliminal](https://github.com/Diaoul/subliminal):
    - Windows (PowerShell):
      ```
      python -m venv "$HOME\.subtitulos-esp\venv"
